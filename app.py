@@ -31,7 +31,7 @@ if "direct_reset_token" not in st.session_state:
     st.session_state.direct_reset_token = None
 
 # Check for direct reset token in URL parameters
-query_params = st.experimental_get_query_params()
+query_params = st.query_params
 if "token" in query_params and not st.session_state.authenticated:
     st.session_state.direct_reset_token = query_params["token"][0]
     st.session_state.show_forgot_password = True
