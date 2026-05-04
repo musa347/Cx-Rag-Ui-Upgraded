@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 # Configuration
-API_URL = st.secrets.get("API_URL", "http://localhost:8080")
+API_URL = st.secrets.get("API_URL", "https://developer-intelligence-platform-xivl.onrender.com")
 
 # Initialize session state
 if "authenticated" not in st.session_state:
