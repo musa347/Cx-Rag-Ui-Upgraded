@@ -7,7 +7,6 @@ from PyPDF2 import PdfReader
 import requests
 import io
 from typing import Tuple
-from PIL import Image
 
 def convert_pdf_to_markdown(pdf_bytes: bytes) -> Tuple[str, int]:
     """

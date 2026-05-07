@@ -864,7 +864,7 @@ def show_document_upload():
                         st.info("💡 Download the markdown file and upload it below using 'Upload Document' section.")
                         
                     except ImportError:
-                        st.error("PDF converter not available. Please install: pip install PyPDF2 requests Pillow")
+                        st.error("PDF converter not available. Please install: pip install PyPDF2 requests")
                     except Exception as e:
                         st.error(f"Conversion failed: {str(e)}")
     
