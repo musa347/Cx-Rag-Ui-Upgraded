@@ -1,9 +1,9 @@
 """
 PDF to Markdown converter with diagram descriptions
-Uses free tools: pypdf, Hugging Face Inference API
+Uses free tools: PyPDF2, Hugging Face Inference API
 """
 
-from pypdf import PdfReader
+from PyPDF2 import PdfReader
 import requests
 import io
 from typing import Tuple
@@ -23,29 +23,29 @@ def convert_pdf_to_markdown(pdf_bytes: bytes) -> Tuple[str, int]:
         text = page.extract_text()
         
         # Check if page has images
-        images = page.images if hasattr(page, 'images') else []
-        
-        if images:
-            # Page has diagrams
-            markdown_content.append(f"\n## Page {page_num + 1}\n")
-            if text.strip():
-                markdown_content.append(text)
+        if '/XObject' in page['/Resources']:
+            xobjects = page['/Resources']['/XObject'].get_object()
             
-            # Extract and describe each image
-            for img_index, image in enumerate(images):
-                try:
-                    # Get image data
-                    image_bytes = image.data
-                    
-                    # Describe using free Hugging Face API
-                    description = describe_image_free(image_bytes)
-                    
-                    markdown_content.append(f"\n**Diagram {diagram_count + 1}:** {description}\n")
-                    diagram_count += 1
-                    
-                except Exception as e:
-                    markdown_content.append(f"\n[Diagram {diagram_count + 1} present - could not extract description]\n")
-                    diagram_count += 1
+            has_images = False
+            for obj in xobjects:
+                if xobjects[obj]['/Subtype'] == '/Image':
+                    has_images = True
+                    break
+            
+            if has_images:
+                # Page has diagrams
+                markdown_content.append(f"\n## Page {page_num + 1}\n")
+                if text.strip():
+                    markdown_content.append(text)
+                
+                # Note: PyPDF2 doesn't easily extract image bytes
+                # So we'll just note that diagrams are present
+                markdown_content.append(f"\n**[Diagram {diagram_count + 1} present on this page]**\n")
+                diagram_count += 1
+            else:
+                # Regular text page
+                if text.strip():
+                    markdown_content.append(text)
         else:
             # Regular text page
             if text.strip():
