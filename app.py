@@ -829,44 +829,43 @@ def show_document_upload():
         - Output a markdown file ready for upload
         """)
         
-        with st.form("pdf_converter_form"):
-            pdf_file = st.file_uploader("Upload PDF to Convert", type=['pdf'], key="pdf_converter")
-            convert_btn = st.form_submit_button("Convert to Markdown", use_container_width=True)
-            
-            if convert_btn and pdf_file:
-                with st.spinner("Converting PDF to Markdown... This may take a minute for PDFs with many diagrams."):
-                    try:
-                        # Import the converter
-                        from pdf_converter import convert_pdf_to_markdown
-                        
-                        # Read PDF bytes
-                        pdf_bytes = pdf_file.read()
-                        
-                        # Convert
-                        markdown_content, diagram_count = convert_pdf_to_markdown(pdf_bytes)
-                        
-                        # Show success
-                        st.success(f"✅ Conversion complete! Found and described {diagram_count} diagrams.")
-                        
-                        # Show preview
-                        st.markdown("#### Preview (first 500 characters):")
-                        st.text(markdown_content[:500] + "...")
-                        
-                        # Download button
-                        st.download_button(
-                            label="📥 Download Markdown File",
-                            data=markdown_content,
-                            file_name=pdf_file.name.replace('.pdf', '_with_diagrams.md'),
-                            mime="text/markdown",
-                            use_container_width=True
-                        )
-                        
-                        st.info("💡 Download the markdown file and upload it below using 'Upload Document' section.")
-                        
-                    except ImportError:
-                        st.error("PDF converter not available. Please install: pip install PyPDF2 requests")
-                    except Exception as e:
-                        st.error(f"Conversion failed: {str(e)}")
+        pdf_file = st.file_uploader("Upload PDF to Convert", type=['pdf'], key="pdf_converter")
+        convert_btn = st.button("Convert to Markdown", use_container_width=True, key="convert_pdf_btn")
+        
+        if convert_btn and pdf_file:
+            with st.spinner("Converting PDF to Markdown... This may take a minute for PDFs with many diagrams."):
+                try:
+                    # Import the converter
+                    from pdf_converter import convert_pdf_to_markdown
+                    
+                    # Read PDF bytes
+                    pdf_bytes = pdf_file.read()
+                    
+                    # Convert
+                    markdown_content, diagram_count = convert_pdf_to_markdown(pdf_bytes)
+                    
+                    # Show success
+                    st.success(f"✅ Conversion complete! Found and described {diagram_count} diagrams.")
+                    
+                    # Show preview
+                    st.markdown("#### Preview (first 500 characters):")
+                    st.text(markdown_content[:500] + "...")
+                    
+                    # Download button (now outside form)
+                    st.download_button(
+                        label="📥 Download Markdown File",
+                        data=markdown_content,
+                        file_name=pdf_file.name.replace('.pdf', '_with_diagrams.md'),
+                        mime="text/markdown",
+                        use_container_width=True
+                    )
+                    
+                    st.info("💡 Download the markdown file and upload it below using 'Upload Document' section.")
+                    
+                except ImportError:
+                    st.error("PDF converter not available. Please install: pip install PyPDF2 requests")
+                except Exception as e:
+                    st.error(f"Conversion failed: {str(e)}")
     
     # Document upload form
     with st.expander("Upload Document", expanded=True):
