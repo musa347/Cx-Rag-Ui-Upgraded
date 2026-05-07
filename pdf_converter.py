@@ -1,54 +1,43 @@
 """
-PDF to Markdown converter with diagram descriptions
-Uses free tools: PyPDF2, Hugging Face Inference API
+PDF to Markdown converter using pdfplumber
+Pure Python, better text extraction than PyPDF2
 """
 
-from PyPDF2 import PdfReader
-import requests
+import pdfplumber
 import io
 from typing import Tuple
 
 def convert_pdf_to_markdown(pdf_bytes: bytes) -> Tuple[str, int]:
     """
-    Convert PDF to markdown with diagram descriptions
+    Convert PDF to markdown with better text extraction
     Returns: (markdown_content, num_diagrams)
     """
-    reader = PdfReader(io.BytesIO(pdf_bytes))
     markdown_content = []
     diagram_count = 0
     
-    for page_num, page in enumerate(reader.pages):
-        # Extract text
-        text = page.extract_text()
-        
-        # Check if page has images
-        if '/XObject' in page['/Resources']:
-            xobjects = page['/Resources']['/XObject'].get_object()
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page_num, page in enumerate(pdf.pages):
+            markdown_content.append(f"\n## Page {page_num + 1}\n")
             
-            has_images = False
-            for obj in xobjects:
-                if xobjects[obj]['/Subtype'] == '/Image':
-                    has_images = True
-                    break
-            
-            if has_images:
-                # Page has diagrams
-                markdown_content.append(f"\n## Page {page_num + 1}\n")
-                if text.strip():
-                    markdown_content.append(text)
-                
-                # Note: PyPDF2 doesn't easily extract image bytes
-                # So we'll just note that diagrams are present
-                markdown_content.append(f"\n**[Diagram {diagram_count + 1} present on this page]**\n")
-                diagram_count += 1
-            else:
-                # Regular text page
-                if text.strip():
-                    markdown_content.append(text)
-        else:
-            # Regular text page
-            if text.strip():
+            # Extract text (better than PyPDF2)
+            text = page.extract_text()
+            if text:
                 markdown_content.append(text)
+            
+            # Extract tables
+            tables = page.extract_tables()
+            if tables:
+                for table in tables:
+                    markdown_content.append("\n**Table:**\n")
+                    for row in table:
+                        markdown_content.append("| " + " | ".join(str(cell) if cell else "" for cell in row) + " |")
+                    markdown_content.append("\n")
+            
+            # Detect images
+            if page.images:
+                for img in page.images:
+                    diagram_count += 1
+                    markdown_content.append(f"\n**[Diagram {diagram_count} present on this page]**\n")
     
     return '\n'.join(markdown_content), diagram_count
 
