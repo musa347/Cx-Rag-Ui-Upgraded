@@ -1,1 +1,0 @@
-# No system packages required - pypdf and Pillow use pre-built wheels
