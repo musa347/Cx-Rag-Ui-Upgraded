@@ -1,30 +1,29 @@
 """
 PDF to Markdown converter with diagram descriptions
-Uses free tools: PyMuPDF, Hugging Face Inference API
+Uses free tools: pypdf, Hugging Face Inference API
 """
 
-import fitz  # PyMuPDF
+from pypdf import PdfReader
 import requests
 import io
 from typing import Tuple
+from PIL import Image
 
 def convert_pdf_to_markdown(pdf_bytes: bytes) -> Tuple[str, int]:
     """
     Convert PDF to markdown with diagram descriptions
     Returns: (markdown_content, num_diagrams)
     """
-    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    reader = PdfReader(io.BytesIO(pdf_bytes))
     markdown_content = []
     diagram_count = 0
     
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        
+    for page_num, page in enumerate(reader.pages):
         # Extract text
-        text = page.get_text()
+        text = page.extract_text()
         
-        # Check if page has images/diagrams
-        images = page.get_images()
+        # Check if page has images
+        images = page.images if hasattr(page, 'images') else []
         
         if images:
             # Page has diagrams
@@ -33,12 +32,10 @@ def convert_pdf_to_markdown(pdf_bytes: bytes) -> Tuple[str, int]:
                 markdown_content.append(text)
             
             # Extract and describe each image
-            for img_index, img in enumerate(images):
+            for img_index, image in enumerate(images):
                 try:
-                    # Extract image
-                    xref = img[0]
-                    base_image = doc.extract_image(xref)
-                    image_bytes = base_image["image"]
+                    # Get image data
+                    image_bytes = image.data
                     
                     # Describe using free Hugging Face API
                     description = describe_image_free(image_bytes)
@@ -54,7 +51,6 @@ def convert_pdf_to_markdown(pdf_bytes: bytes) -> Tuple[str, int]:
             if text.strip():
                 markdown_content.append(text)
     
-    doc.close()
     return '\n'.join(markdown_content), diagram_count
 
 
