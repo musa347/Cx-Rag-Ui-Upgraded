@@ -1,3 +1,1 @@
-zlib1g-dev
-libjpeg-dev
-libpng-dev
+# No system packages required - pypdf and Pillow use pre-built wheels
