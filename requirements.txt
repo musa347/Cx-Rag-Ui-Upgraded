@@ -1,4 +1,4 @@
 streamlit==1.40.0
 requests==2.31.0
 streamlit-oauth==0.1.14
-PyMuPDF==1.23.8
+PyMuPDF[builtin]==1.23.8
