@@ -22,6 +22,8 @@ def convert_pdf_to_markdown(pdf_bytes: bytes) -> Tuple[str, int]:
             # Extract text (better than PyPDF2)
             text = page.extract_text()
             if text:
+                # Clean null bytes and other problematic characters
+                text = text.replace('\x00', '').replace('\ufffd', '')
                 markdown_content.append(text)
             
             # Extract tables
@@ -30,7 +32,8 @@ def convert_pdf_to_markdown(pdf_bytes: bytes) -> Tuple[str, int]:
                 for table in tables:
                     markdown_content.append("\n**Table:**\n")
                     for row in table:
-                        markdown_content.append("| " + " | ".join(str(cell) if cell else "" for cell in row) + " |")
+                        cleaned_row = [str(cell).replace('\x00', '') if cell else "" for cell in row]
+                        markdown_content.append("| " + " | ".join(cleaned_row) + " |")
                     markdown_content.append("\n")
             
             # Detect images
