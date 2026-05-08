@@ -22,6 +22,10 @@ if "role" not in st.session_state:
     st.session_state.role = None
 if "history" not in st.session_state:
     st.session_state.history = []
+if "last_query_result" not in st.session_state:
+    st.session_state.last_query_result = None
+if "last_ingestion_message" not in st.session_state:
+    st.session_state.last_ingestion_message = None
 
 if "show_forgot_password" not in st.session_state:
     st.session_state.show_forgot_password = False
@@ -387,9 +391,9 @@ def upload_document_admin(file, service_code, document_type, version):
         if response.status_code == 200:
             result = response.json()
             if result.get("status") == "PROCESSING":
-                return True, f"Document upload started! {result.get('message')} Processing in background - you can continue using the app."
+                return True, result
             else:
-                return True, result.get("message", "Document uploaded successfully")
+                return True, result
         else:
             error = response.json()
             return False, error.get("error", "Failed to upload document")
@@ -816,6 +820,10 @@ def show_document_upload():
     
     st.markdown("### Document Upload")
     st.markdown("Upload documents to make them searchable in the RAG system.")
+    st.caption("Uploads are asynchronous. A successful upload response means ingestion started, not that the document is already queryable.")
+
+    if st.session_state.last_ingestion_message:
+        st.info(st.session_state.last_ingestion_message)
     
     # PDF to Markdown Converter
     with st.expander("🔄 PDF to Markdown Converter (with Diagram Descriptions)", expanded=False):
@@ -884,13 +892,20 @@ def show_document_upload():
             if upload_btn:
                 if uploaded_file and service_code and version:
                     with st.spinner("Uploading document..."):
-                        success, message = upload_document_admin(uploaded_file, service_code, document_type, version)
+                        success, result = upload_document_admin(uploaded_file, service_code, document_type, version)
                         if success:
-                            st.success(message)
+                            message = result.get("message", "Document upload started successfully")
+                            filename = result.get("filename", uploaded_file.name)
+                            status = result.get("status", "PROCESSING")
+                            st.session_state.last_ingestion_message = (
+                                f"{message} Status: {status}. Service: {service_code}. "
+                                f"Document: {filename}. Wait for background ingestion to finish before querying."
+                            )
+                            st.success(st.session_state.last_ingestion_message)
                             time.sleep(1)
                             st.rerun()
                         else:
-                            st.error(message)
+                            st.error(result)
                 else:
                     st.warning("Please fill all required fields")
     
@@ -952,6 +967,7 @@ def show_main_app():
         page = st.radio("Navigation", pages, label_visibility="collapsed")
         
         st.markdown("---")
+        st.caption(f"Backend: `{API_URL}`")
         
         if st.button("Logout", use_container_width=True):
             logout()
@@ -1036,27 +1052,40 @@ def show_query_interface():
                             
                             if response.status_code == 200:
                                 result = response.json()
+                                st.session_state.last_query_result = result
                                 
                                 st.markdown("### Response")
                                 st.write(result.get("answer", "No answer"))
                                 
                                 confidence = result.get("confidence", "UNKNOWN")
                                 st.markdown(f"**Confidence:** `{confidence}`")
+                                if mode == "Technical Documentation" and service_code:
+                                    st.caption(f"Service: {service_code}")
                                 
                                 # Sources
                                 sources = result.get("sources", [])
                                 if sources:
                                     st.markdown("### Sources")
-                                    for source in sources:
-                                        st.markdown(f"""
-                                        **{source.get('documentType', 'Unknown')}** (v{source.get('version', '?')})  
-                                        *{source.get('section', 'Unknown Section')}*  
-                                        {source.get('excerpt', '')}
-                                        """)
-                                        st.markdown("---")
+                                    for index, source in enumerate(sources, start=1):
+                                        with st.expander(
+                                            f"{index}. {source.get('section', 'Unknown Section')} "
+                                            f"[{source.get('documentType', 'Unknown')}, v{source.get('version', '?')}]",
+                                            expanded=(index == 1)
+                                        ):
+                                            st.markdown(f"**Document Type:** `{source.get('documentType', 'Unknown')}`")
+                                            st.markdown(f"**Version:** `{source.get('version', '?')}`")
+                                            st.markdown(f"**Section:** `{source.get('section', 'Unknown Section')}`")
+                                            st.code(source.get('excerpt', ''), language="text")
+                                else:
+                                    st.warning("No sources were returned. That usually means retrieval was weak or ingestion is still processing.")
+
+                                with st.expander("Debug Response", expanded=False):
+                                    st.json(result)
                                 
                                 # Add to history
                                 st.session_state.history.append({
+                                    "mode": mode,
+                                    "service_code": service_code if mode == "Technical Documentation" else None,
                                     "query": query,
                                     "answer": result.get("answer", ""),
                                     "confidence": confidence,
@@ -1078,6 +1107,10 @@ def show_query_interface():
                 response = requests.get(f"{API_URL}/api/health", timeout=10)
                 if response.status_code == 200:
                     st.success("System Online")
+                    try:
+                        st.json(response.json())
+                    except Exception:
+                        st.caption("Health endpoint responded without JSON body.")
                 else:
                     st.error("System Offline")
             except:
@@ -1092,6 +1125,9 @@ def show_query_interface():
             
             for item in reversed(st.session_state.history[-5:]):
                 with st.expander(f"{item['timestamp']} - {item['query'][:20]}..."):
+                    st.write(f"**Mode:** {item.get('mode', 'Unknown')}")
+                    if item.get("service_code"):
+                        st.write(f"**Service:** `{item['service_code']}`")
                     st.write(f"**Answer:** {item['answer'][:80]}...")
                     st.write(f"**Confidence:** `{item['confidence']}`")
 
