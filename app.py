@@ -34,10 +34,16 @@ if "reset_token_sent" not in st.session_state:
 if "direct_reset_token" not in st.session_state:
     st.session_state.direct_reset_token = None
 
-# Check for direct reset token in URL parameters
-query_params = st.query_params
-if "token" in query_params and not st.session_state.authenticated:
-    st.session_state.direct_reset_token = query_params["token"][0]
+# Check for direct reset token in URL parameters (Streamlit version compatible)
+try:
+    query_params = st.query_params
+except AttributeError:
+    query_params = st.experimental_get_query_params()
+
+token_values = query_params.get("token", [])
+token = token_values[0] if isinstance(token_values, list) and token_values else token_values
+if token and not st.session_state.authenticated:
+    st.session_state.direct_reset_token = token
     st.session_state.show_forgot_password = True
     st.session_state.reset_token_sent = True
 
@@ -53,7 +59,7 @@ st.markdown("""
     
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 3rem 2rem;
+        padding: 2.1rem 1.5rem;
         margin: -1rem -1rem 2rem -1rem;
         text-align: center;
         border-bottom: 4px solid #5a67d8;
@@ -77,7 +83,7 @@ st.markdown("""
     }
     .main-header h1 {
         color: white;
-        font-size: 2.8rem;
+        font-size: 2.25rem;
         margin: 0;
         font-weight: 700;
         letter-spacing: -0.5px;
@@ -87,8 +93,8 @@ st.markdown("""
     }
     .main-header p {
         color: rgba(255,255,255,0.95);
-        font-size: 1.15rem;
-        margin: 0.8rem 0 0 0;
+        font-size: 1rem;
+        margin: 0.55rem 0 0 0;
         font-weight: 400;
         position: relative;
         z-index: 1;
@@ -129,6 +135,58 @@ st.markdown("""
         font-weight: 600;
         display: inline-block;
         margin-top: 0.3rem;
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #667eea 0%, #5a67d8 100%);
+        border: 1px solid #5a67d8;
+        color: #ffffff;
+        font-weight: 600;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #5f6fdb 0%, #4c5dd0 100%);
+        border-color: #4c5dd0;
+        color: #ffffff;
+    }
+    .confidence-chip {
+        display: inline-block;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    .confidence-high {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #86efac;
+    }
+    .confidence-medium {
+        background: #fef9c3;
+        color: #854d0e;
+        border: 1px solid #fde047;
+    }
+    .confidence-low, .confidence-unknown {
+        background: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fca5a5;
+    }
+    .answer-tag {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.22rem 0.52rem;
+        border-radius: 6px;
+        margin: 0 0.35rem 0.35rem 0;
+    }
+    .tag-fact {
+        background: #e0e7ff;
+        color: #3730a3;
+        border: 1px solid #c7d2fe;
+    }
+    .tag-inference {
+        background: #ffedd5;
+        color: #9a3412;
+        border: 1px solid #fdba74;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -936,6 +994,36 @@ def show_document_upload():
 
 # ==================== MAIN APPLICATION ====================
 
+def render_confidence_chip(confidence):
+    confidence_text = (confidence or "UNKNOWN").strip().upper()
+    confidence_class = {
+        "HIGH": "confidence-high",
+        "MEDIUM": "confidence-medium",
+        "LOW": "confidence-low"
+    }.get(confidence_text, "confidence-unknown")
+    st.markdown(
+        f'Confidence: <span class="confidence-chip {confidence_class}">{confidence_text}</span>',
+        unsafe_allow_html=True
+    )
+
+
+def render_answer_with_labels(answer_text):
+    answer = (answer_text or "No answer").strip()
+    if "Inference (from documented values):" in answer:
+        fact_part, inference_part = answer.split("Inference (from documented values):", 1)
+        st.markdown(
+            '<span class="answer-tag tag-fact">GROUNDED FACT</span>'
+            '<span class="answer-tag tag-inference">LABELED INFERENCE</span>',
+            unsafe_allow_html=True
+        )
+        if fact_part.strip():
+            st.write(fact_part.strip())
+        st.markdown("**Inference (from documented values):**")
+        st.write(inference_part.strip())
+    else:
+        st.markdown('<span class="answer-tag tag-fact">GROUNDED FACT</span>', unsafe_allow_html=True)
+        st.write(answer)
+
 def show_main_app():
     """Display main application interface"""
     
@@ -1055,10 +1143,10 @@ def show_query_interface():
                                 st.session_state.last_query_result = result
                                 
                                 st.markdown("### Response")
-                                st.write(result.get("answer", "No answer"))
+                                render_answer_with_labels(result.get("answer", "No answer"))
                                 
                                 confidence = result.get("confidence", "UNKNOWN")
-                                st.markdown(f"**Confidence:** `{confidence}`")
+                                render_confidence_chip(confidence)
                                 if mode == "Technical Documentation" and service_code:
                                     st.caption(f"Service: {service_code}")
                                 
@@ -1129,7 +1217,7 @@ def show_query_interface():
                     if item.get("service_code"):
                         st.write(f"**Service:** `{item['service_code']}`")
                     st.write(f"**Answer:** {item['answer'][:80]}...")
-                    st.write(f"**Confidence:** `{item['confidence']}`")
+                    render_confidence_chip(item.get("confidence", "UNKNOWN"))
 
 # ==================== MAIN ENTRY POINT ====================
 
