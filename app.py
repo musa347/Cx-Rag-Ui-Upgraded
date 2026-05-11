@@ -5,7 +5,8 @@ import time
 
 # Health endpoint check
 if st.query_params.get("health") == "1":
-    st.write({"status": "ok"})
+    import json
+    st.json({"status": "ok"})
     st.stop()
 
 # Page config must be first
