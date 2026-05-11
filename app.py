@@ -3,6 +3,11 @@ import requests
 import json
 import time
 
+# Health endpoint check
+if st.query_params.get("health") == "1":
+    st.write({"status": "ok"})
+    st.stop()
+
 # Page config must be first
 st.set_page_config(
     page_title="CP-DIP - Developer Intelligence Platform",
